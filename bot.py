@@ -122,5 +122,13 @@ def webhook():
 
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 10000))
-    bot.set_webhook(f"https://{os.environ['RENDER_EXTERNAL_URL']}/{TOKEN}")
     app.run(host="0.0.0.0", port=PORT)
+
+    # Configurar webhook después de iniciar (Render ya tendrá RENDER_EXTERNAL_URL)
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    if render_url:
+        webhook_url = f"https://{render_url}/{TOKEN}"
+        bot.set_webhook(webhook_url)
+        print(f"✅ Webhook configurado correctamente: {webhook_url}")
+    else:
+        print("⚠️ No se encontró RENDER_EXTERNAL_URL")
