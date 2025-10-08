@@ -20,7 +20,7 @@ else:
 
 gc = gspread.authorize(creds)
 G_SHEET_NAME = "Finanzas"
-TELEGRAM_TOKEN = "7830595885:AAFg3OFdmWc_M3jAAC4QNGfxFOgi_1FfUKs"
+TELEGRAM_TOKEN = "7830595885:AAHqASrUvjN602MfPgPLky9vCLecAZGmADM"
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 IMG_DIR = "comprobantes_img"
@@ -116,3 +116,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
