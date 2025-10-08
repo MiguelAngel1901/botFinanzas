@@ -5,12 +5,17 @@ import datetime
 import pytesseract
 import cv2
 import numpy as np
-import pandas as pd
-from telegram import Update, Bot
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
 import json
+import pandas as pd
+from flask import Flask, request
+from telegram import Update, Bot
+from telegram.ext import Dispatcher, MessageHandler, Filters, CallbackContext
 from google.oauth2.service_account import Credentials
 import gspread
+
+# === CONFIGURACIÓN ===
+TOKEN = os.getenv("TELEGRAM_TOKEN", "7830595885:AAHqASrUvjN602MfPgPLky9vCLecAZGmADM")
+bot = Bot(token=TOKEN)
 
 if 'G_CREDENTIALS_JSON' in os.environ:
     creds_json = json.loads(os.environ['G_CREDENTIALS_JSON'])
@@ -20,12 +25,12 @@ else:
 
 gc = gspread.authorize(creds)
 G_SHEET_NAME = "Finanzas"
-TELEGRAM_TOKEN = "7830595885:AAHqASrUvjN602MfPgPLky9vCLecAZGmADM"
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'  # Render usa Linux
 
 IMG_DIR = "comprobantes_img"
 os.makedirs(IMG_DIR, exist_ok=True)
 
+# === FUNCIONES ===
 def preprocess_image_bytes(image_bytes):
     arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -65,19 +70,11 @@ def extract_fields(text):
 
     return {"amount": amount, "date": date, "type": ttype, "raw": text[:120]}
 
-def gsheets_client():
-    scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(G_CREDENTIALS_JSON, scope)
-    client = gspread.authorize(creds)
-    return client
-
 def append_row_to_sheets(row):
-    client = gsheets_client()
     try:
-        sheet = client.open(G_SHEET_NAME).sheet1
-    except Exception as e:
-        sh = client.create(G_SHEET_NAME)
-        sh.share('tu-email@example.com', perm_type='user', role='owner')  # comparte a tu cuenta si es necesario
+        sheet = gc.open(G_SHEET_NAME).sheet1
+    except Exception:
+        sh = gc.create(G_SHEET_NAME)
         sheet = sh.sheet1
     sheet.append_row(row)
 
@@ -94,26 +91,36 @@ def handle_photo(update: Update, context: CallbackContext):
         f.write(img_bytes)
 
     img_proc = preprocess_image_bytes(img_bytes)
-    text = pytesseract.image_to_string(img_proc, lang='spa+eng')  # spa+eng por si viene mezcla
+    text = pytesseract.image_to_string(img_proc, lang='spa+eng')
     fields = extract_fields(text)
 
     now = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
     row = [now, fields.get("date"), fields.get("amount"), fields.get("type"), fields.get("raw"), fname]
+
     try:
         append_row_to_sheets(row)
-        update.message.reply_text(f"Guardado ✅\nMonto: {fields.get('amount')}\nTipo: {fields.get('type')}\nFecha detección: {fields.get('date')}")
+        update.message.reply_text(
+            f"✅ Guardado\nMonto: {fields.get('amount')}\nTipo: {fields.get('type')}\nFecha: {fields.get('date')}"
+        )
     except Exception as e:
-        update.message.reply_text(f"Error guardando: {e}")
+        update.message.reply_text(f"❌ Error guardando: {e}")
 
-def main():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(MessageHandler(Filters.photo, handle_photo))
-    updater.start_polling()
-    print("Bot corriendo...")
-    updater.idle()
+# === SERVIDOR FLASK PARA RENDER ===
+app = Flask(__name__)
+dispatcher = Dispatcher(bot, None, use_context=True)
+dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo))
+
+@app.route('/')
+def home():
+    return "🤖 Bot Finanzas está corriendo!"
+
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return "ok", 200
 
 if __name__ == "__main__":
-
-    main()
-
+    PORT = int(os.environ.get("PORT", 10000))
+    bot.set_webhook(f"https://{os.environ['RENDER_EXTERNAL_URL']}/{TOKEN}")
+    app.run(host="0.0.0.0", port=PORT)
