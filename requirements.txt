@@ -1,7 +1,11 @@
 python-telegram-bot==13.14
-pytesseract
+Flask==3.0.3
 opencv-python
-gspread
-oauth2client
+pytesseract
+numpy
 pandas
-openpyxl
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+oauth2client
