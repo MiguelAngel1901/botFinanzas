@@ -1,0 +1,7 @@
+python-telegram-bot==13.14
+pytesseract
+opencv-python
+gspread
+oauth2client
+pandas
+openpyxl
