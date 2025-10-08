@@ -1,6 +1,3 @@
-# Requisitos:
-# pip install python-telegram-bot==13.XX pytesseract opencv-python gspread oauth2client pandas openpyxl
-
 import os
 import re
 import io
@@ -11,14 +8,20 @@ import numpy as np
 import pandas as pd
 from telegram import Update, Bot
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+import json
+from google.oauth2.service_account import Credentials
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
+if 'G_CREDENTIALS_JSON' in os.environ:
+    creds_json = json.loads(os.environ['G_CREDENTIALS_JSON'])
+    creds = Credentials.from_service_account_info(creds_json)
+else:
+    creds = Credentials.from_service_account_file("credentials.json")
+
+gc = gspread.authorize(creds)
+G_SHEET_NAME = "Finanzas"
 TELEGRAM_TOKEN = "7830595885:AAFg3OFdmWc_M3jAAC4QNGfxFOgi_1FfUKs"
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-G_SHEET_NAME = "Finanzas"
-G_CREDENTIALS_JSON = "credentials.json"
 
 IMG_DIR = "comprobantes_img"
 os.makedirs(IMG_DIR, exist_ok=True)
@@ -111,4 +114,5 @@ def main():
     updater.idle()
 
 if __name__ == "__main__":
+
     main()
